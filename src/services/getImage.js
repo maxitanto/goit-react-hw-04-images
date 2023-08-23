@@ -15,6 +15,5 @@ export const getImage = async (searchText, currentPage) => {
   });
 
   const response = await axios.get(`?page=${currentPage}&${options}`);
-
   return response.data;
 };

@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useEffect, useState } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { getImage } from 'services/getImage';
@@ -8,99 +8,77 @@ import { Loader } from './Loader/Loader';
 import { Modal } from './Modal/Modal';
 import { Searchbar } from './Searchbar/Searchbar';
 
-export class App extends Component {
-  state = {
-    searchText: '',
-    images: [],
-    selectedLargeImage: null,
-    alt: null,
-    currentPage: 1,
-    error: null,
-    isLoading: false,
-  };
+export const App = () => {
+  const [searchText, setSearchText] = useState('');
+  const [images, setImages] = useState([]);
+  const [selectedLargeImage, setSelectedLargeImage] = useState(null);
+  const [alt, setAlt] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
 
-  componentDidUpdate(prevProps, prevState) {
-    const { searchText, currentPage } = this.state;
-    if (
-      prevState.searchText !== searchText ||
-      prevState.currentPage !== currentPage
-    ) {
-      this.addImages();
+  useEffect(() => {
+    if (!searchText) {
+      return;
     }
-  }
 
-  handleSearch = searchText => {
-    this.setState({
-      searchText,
-      images: [],
-      currentPage: 1,
-    });
-  };
+    const addImages = async () => {
+      setIsLoading(true);
 
-  addImages = async () => {
-    const { searchText, currentPage } = this.state;
+      try {
+        const { hits } = await getImage(searchText, currentPage);
+        if (hits.length === 0) {
+          toast.info('Sorry image not found...');
+        }
 
-    try {
-      this.setState({ isLoading: true });
+        setImages(prevImages => [...prevImages, ...hits]);
 
-      const dataImages = await getImage(searchText, currentPage);
-
-      if (dataImages.hits.length === 0) {
-        toast.info('Sorry image not found...');
+        setIsLoading(false);
+      } catch (error) {
+        toast.error(`Something went wrong! Error message: ${error.message}`);
+        console.log(error);
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      this.setState(state => ({
-        images: [...state.images, ...dataImages.hits],
-        isLoading: false,
-      }));
-    } catch (error) {
-      toast.error(`Something went wrong! Error message: ${error.message}`);
-      console.log(error);
-      // this.setState({ error: 'Something went wrong!' });
-    } finally {
-      this.setState({ isLoading: false });
-    }
+    addImages();
+  }, [searchText, currentPage]);
+
+  const handleSearch = searchText => {
+    setSearchText(searchText);
+    setImages([]);
+    setCurrentPage(1);
   };
 
-  loadMore = () => {
-    this.setState(prevState => ({
-      currentPage: prevState.currentPage + 1,
-    }));
+  const loadMore = () => {
+    setCurrentPage(prevPage => prevPage + 1);
   };
 
-  onCloseModal = () => {
-    this.setState({
-      selectedLargeImage: null,
-    });
+  const onCloseModal = () => {
+    setSelectedLargeImage(null);
   };
 
-  handleSelectedImg = (largeImage, alt) => {
-    this.setState({
-      selectedLargeImage: largeImage,
-      alt,
-    });
+  const handleSelectedImg = (largeImage, alt) => {
+    setSelectedLargeImage(largeImage);
+    setAlt(alt);
   };
 
-  render() {
-    const { images, isLoading, selectedLargeImage, alt } = this.state;
-
-    return (
-      <>
-        <Searchbar handleSearch={this.handleSearch} />;
-        <ToastContainer autoClose={3000} />
-        {images.length > 0 && (
-          <ImageGallery images={images} selectedImg={this.handleSelectedImg} />
-        )}
-        {isLoading && <Loader />}
-        {images.length > 0 && !isLoading && <Button onClick={this.loadMore} />}
-        {selectedLargeImage && (
-          <Modal
-            selectedLargeImage={selectedLargeImage}
-            alt={alt}
-            onClose={this.onCloseModal}
-          />
-        )}
-      </>
-    );
-  }
-}
+  return (
+    <>
+      <Searchbar handleSearch={handleSearch} />;
+      <ToastContainer autoClose={3000} />
+      {images.length > 0 && (
+        <ImageGallery images={images} selectedImg={handleSelectedImg} />
+      )}
+      {isLoading && <Loader />}
+      {images.length > 0 && !isLoading && <Button onClick={loadMore} />}
+      {selectedLargeImage && (
+        <Modal
+          selectedLargeImage={selectedLargeImage}
+          alt={alt}
+          onClose={onCloseModal}
+        />
+      )}
+    </>
+  );
+};
